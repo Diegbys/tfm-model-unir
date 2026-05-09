@@ -668,4 +668,156 @@ Dividido entre 2 personas y ~9 semanas (Sem. 7-15) → ~1.3 días/persona/semana
 
 ---
 
+## Apéndice C — Progress Tracker (checkboxes)
+
+Marcá `[x]` (sustituyendo el espacio dentro de los corchetes por una `x`) cuando una tarea esté completa. Esta sección es el "tablero" del proyecto: una vista única para ver de un vistazo qué falta.
+
+> Tip: en VS Code / Cursor / GitHub puedes hacer click directo en el checkbox; en otros editores Markdown basta con cambiar `[ ]` por `[x]`.
+
+### Hitos macro
+
+- [ ] **Hito 1 — Borrador Intermedio (Sem. 9)** entregado
+- [ ] **Hito 2 — Borrador Final (Sem. 15)** entregado
+- [ ] **Hito 3 — Predepósito** preparado
+- [ ] **Hito 4 — Defensa** preparada
+
+### Fase 1 — Adquisición de datos `[ ] FASE COMPLETA`
+
+- [ ] **F1-T1** — Estructura de directorios + repo Git inicializado
+- [ ] **F1-T2** — Stack pinneado en `pyproject.toml` / `requirements.txt`
+- [ ] **F1-T3** — Descarga yfinance 6 activos → Parquet en `data/raw/equities/`
+- [ ] **F1-T4** — Fallback Stooq operativo
+- [ ] **F1-T5** — Descarga macro (VIX, ^TNX, DXY) → Parquet
+- [ ] **F1-T6** — Alineación al calendario XNYS
+- [ ] **F1-T7** — Script CLI `01_download_data.py` end-to-end
+- [ ] **F1-T8** — Test `test_aligned_dataset` pasa
+
+### Fase 2 — EDA y entendimiento del dominio `[ ] FASE COMPLETA`
+
+- [ ] **F2-T1** — Notebook con series, estadísticas, distribuciones, NaN
+- [ ] **F2-T2** — Stylized facts en datos reales (CSV + figs)
+- [ ] **F2-T3** — Análisis macro y regímenes (VIX, TNX, DXY)
+- [ ] **F2-T4** — Sub-períodos de estrés documentados en YAML
+- [ ] **F2-T5** — Matriz de correlaciones train vs test
+- [ ] **F2-T6** — Resumen EDA `eda_summary.md`
+- [ ] **F2-T7** — Test `test_real_data_has_fat_tails` pasa
+
+### Fase 3 — Preprocesamiento e ingeniería de features `[ ] FASE COMPLETA`
+
+- [ ] **F3-T1** — Log-returns + body/range/log_volume
+- [ ] **F3-T2** — Set de 9 indicadores técnicos (pandas-ta)
+- [ ] **F3-T3** — Volatilidad realizada (5d, 21d, ratio)
+- [ ] **F3-T4** — Macro features estacionarias
+- [ ] **F3-T5** — Split cronológico 70/10/20 persistido
+- [ ] **F3-T6** — MinMaxScaler TimeGAN ajustado solo en train
+- [ ] **F3-T7** — RobustScaler PPO ajustado solo en train
+- [ ] **F3-T8** — Test `test_scaler_only_train` pasa
+- [ ] **F3-T9** — `build_state` función pura
+- [ ] **F3-T10** — Secuencias TimeGAN `(N, 24, 9)` persistidas
+- [ ] **F3-T11** — Test `test_no_lookahead_in_features` pasa
+- [ ] **F3-T12** — Script CLI `02_build_features.py`
+
+### Fase 4 — Modelado generativo (TimeGAN) `[ ] FASE COMPLETA`
+
+- [ ] **F4-T1** — Redes E/R/G/S/D en PyTorch
+- [ ] **F4-T2** — Loop entrenamiento en 3 fases (embedding/supervised/joint)
+- [ ] **F4-T3** — Config Hydra hiperparámetros TimeGAN
+- [ ] **F4-T4** — Early stopping basado en discriminative score
+- [ ] **F4-T5** — Función `generate_synthetic`
+- [ ] **F4-T6** — Reconstrucción de precios sintéticos
+- [ ] **F4-T7** — Dataset sintético con indicadores recalculados
+- [ ] **F4-T8** — Métrica discriminative score implementada
+- [ ] **F4-T9** — Métrica predictive score (TSTR) implementada
+- [ ] **F4-T10** — Visualización t-SNE / PCA
+- [ ] **F4-T11** — Batería de stylized facts sintéticos
+- [ ] **F4-T12** — Test `test_timegan_train_only` pasa
+- [ ] **F4-T13** — Script `03_train_timegan.py` con multirun
+- [ ] **F4-T14** — Gate de calidad superado (`QUALITY_OK.flag`)
+
+### Fase 5 — Diseño del entorno de trading (Gymnasium) `[ ] FASE COMPLETA`
+
+- [ ] **F5-T1** — Clase `PortfolioEnv` con API Gymnasium
+- [ ] **F5-T2** — Proyección al simplex via softmax
+- [ ] **F5-T3** — Drift de pesos correcto
+- [ ] **F5-T4** — Cálculo de costes de transacción
+- [ ] **F5-T5** — Función de recompensa
+- [ ] **F5-T6** — Config Hydra del entorno
+- [ ] **F5-T7** — Test compliance Gymnasium (`check_env`) pasa
+- [ ] **F5-T8** — Test `test_action_space` pasa
+- [ ] **F5-T9** — Test `test_reward_consistency` pasa
+- [ ] **F5-T10** — Test `test_transaction_costs` pasa
+
+### Fase 6 — Entrenamiento PPO (Agente A y Agente B) `[ ] FASE COMPLETA`
+
+- [ ] **F6-T1** — Config Hydra hiperparámetros PPO
+- [ ] **F6-T2** — Configs experimentos `agent_a` y `agent_b`
+- [ ] **F6-T3** — Factory `make_env` con `VecFrameStack`
+- [ ] **F6-T4** — `MixedDataset` real+sintético operativo
+- [ ] **F6-T5** — Wrapper `train_ppo_agent` con MLflow
+- [ ] **F6-T6** — Callback evaluación periódica sobre val
+- [ ] **F6-T7** — `set_global_seed` reproducible
+- [ ] **F6-T8** — Script `05_train_agent.py` con Hydra multirun
+- [ ] **F6-T9** — Igualación de timesteps verificada
+- [ ] **F6-T10** — **Agente A**: 5 seeds entrenados (modelos persistidos)
+- [ ] **F6-T11** — **Agente B**: 5 seeds entrenados (modelos persistidos)
+- [ ] **F6-T12** — Test `test_a_vs_b_comparable` pasa
+
+### Fase 7 — Backtesting y evaluación `[ ] FASE COMPLETA`
+
+- [ ] **F7-T1** — Función `run_backtest` causal
+- [ ] **F7-T2** — Batería de 9 métricas implementada
+- [ ] **F7-T3** — Baselines pasivos (equiponderado, S&P 500, 60/40)
+- [ ] **F7-T4** — `evaluate_runs` produce CSV por agente
+- [ ] **F7-T5** — Evaluación condicionada por sub-períodos de estrés
+- [ ] **F7-T6** — Plots comparativos generados
+- [ ] **F7-T7** — Script `06_backtest_agent.py`
+- [ ] **F7-T8** — Tests `test_metrics.py` pasan
+
+### Fase 8 — Análisis estadístico comparativo `[ ] FASE COMPLETA`
+
+- [ ] **F8-T1** — `bootstrap_ci_diff` implementado
+- [ ] **F8-T2** — `welch_ttest` con check de normalidad
+- [ ] **F8-T3** — `diebold_mariano` sobre series pareadas
+- [ ] **F8-T4** — Corrección Bonferroni / Benjamini-Hochberg
+- [ ] **F8-T5** — Tabla resumen A vs B (Markdown + CSV)
+- [ ] **F8-T6** — Análisis de persistencia en sub-períodos
+- [ ] **F8-T7** — Script `07_compare_agents.py` + `comparison_report.md`
+
+### Fase 9 — Empaquetado, reproducibilidad y documentación `[ ] FASE COMPLETA`
+
+- [ ] **F9-T1** — Dockerfile + `.dockerignore`
+- [ ] **F9-T2** — README maestro reproducible end-to-end
+- [ ] **F9-T3** — `MANIFEST.csv` con hashes SHA256
+- [ ] **F9-T4** — Zip release con MLflow snapshot
+- [ ] **F9-T5** — Cap. 4 (Planteamiento de la comparativa) redactado
+- [ ] **F9-T6** — Cap. 5 (Desarrollo) redactado
+- [ ] **F9-T7** — Cap. 6 (Discusión y análisis) redactado
+- [ ] **F9-T8** — Cap. 7 + Resumen + Abstract redactados
+
+### Apéndice A — Bootstrap baseline (Agente B') *opcional*
+
+- [ ] **OPT-T1** — Circular block bootstrap implementado
+- [ ] **OPT-T2** — Config `agent_b_prime.yaml`
+- [ ] **OPT-T3** — Agente B' entrenado (5 seeds)
+- [ ] **OPT-T4** — Backtest del Agente B'
+- [ ] **OPT-T5** — Comparación tripartita A vs B' vs B documentada
+
+### Suite anti-leakage (vista cruzada — referencia)
+
+Estas tareas son los tests que protegen la validez del experimento. Cuando todas estén marcadas, el TFE está blindado contra los errores típicos de backtesting de DRL (reporte §7.1):
+
+- [ ] **F1-T8** — Test dataset alineado
+- [ ] **F2-T7** — Test stylized facts datos reales
+- [ ] **F3-T8** — Test scaler solo en train
+- [ ] **F3-T11** — Test no look-ahead en features
+- [ ] **F4-T12** — Test TimeGAN solo train
+- [ ] **F5-T7** — Test compliance Gymnasium
+- [ ] **F5-T8** — Test action space
+- [ ] **F5-T9** — Test reward consistency
+- [ ] **F5-T10** — Test transaction costs
+- [ ] **F6-T12** — Test A vs B comparables
+- [ ] **F7-T8** — Tests métricas contra valores conocidos
+
+---
+
 *Fin del plan. Cualquier cambio se versiona en Git junto al código del repo.*
