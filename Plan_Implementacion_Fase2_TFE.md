@@ -681,26 +681,26 @@ Marcá `[x]` (sustituyendo el espacio dentro de los corchetes por una `x`) cuand
 - [ ] **Hito 3 — Predepósito** preparado
 - [ ] **Hito 4 — Defensa** preparada
 
-### Fase 1 — Adquisición de datos `[ ] FASE COMPLETA`
+### Fase 1 — Adquisición de datos `[x] FASE COMPLETA`
 
-- [ ] **F1-T1** — Estructura de directorios + repo Git inicializado
-- [ ] **F1-T2** — Stack pinneado en `pyproject.toml` / `requirements.txt`
-- [ ] **F1-T3** — Descarga yfinance 6 activos → Parquet en `data/raw/equities/`
-- [ ] **F1-T4** — Fallback Stooq operativo
-- [ ] **F1-T5** — Descarga macro (VIX, ^TNX, DXY) → Parquet
-- [ ] **F1-T6** — Alineación al calendario XNYS
-- [ ] **F1-T7** — Script CLI `01_download_data.py` end-to-end
-- [ ] **F1-T8** — Test `test_aligned_dataset` pasa
+- [x] **F1-T1** — Estructura de directorios + repo Git inicializado
+- [x] **F1-T2** — Stack pinneado en `pyproject.toml` / `requirements.txt`
+- [x] **F1-T3** — Descarga yfinance 6 activos → Parquet en `data/raw/equities/`
+- [x] **F1-T4** — Fallback Stooq operativo
+- [x] **F1-T5** — Descarga macro (VIX, ^TNX, DXY) → Parquet
+- [x] **F1-T6** — Alineación al calendario XNYS
+- [x] **F1-T7** — Script CLI `01_download_data.py` end-to-end
+- [x] **F1-T8** — Test `test_aligned_dataset` pasa
 
-### Fase 2 — EDA y entendimiento del dominio `[ ] FASE COMPLETA`
+### Fase 2 — EDA y entendimiento del dominio `[x] FASE COMPLETA`
 
-- [ ] **F2-T1** — Notebook con series, estadísticas, distribuciones, NaN
-- [ ] **F2-T2** — Stylized facts en datos reales (CSV + figs)
-- [ ] **F2-T3** — Análisis macro y regímenes (VIX, TNX, DXY)
-- [ ] **F2-T4** — Sub-períodos de estrés documentados en YAML
-- [ ] **F2-T5** — Matriz de correlaciones train vs test
-- [ ] **F2-T6** — Resumen EDA `eda_summary.md`
-- [ ] **F2-T7** — Test `test_real_data_has_fat_tails` pasa
+- [x] **F2-T1** — Notebook con series, estadísticas, distribuciones, NaN
+- [x] **F2-T2** — Stylized facts en datos reales (CSV + figs)
+- [x] **F2-T3** — Análisis macro y regímenes (VIX, TNX, DXY)
+- [x] **F2-T4** — Sub-períodos de estrés documentados en YAML
+- [x] **F2-T5** — Matriz de correlaciones train vs test
+- [x] **F2-T6** — Resumen EDA `eda_summary.md`
+- [x] **F2-T7** — Test `test_real_data_has_fat_tails` pasa
 
 ### Fase 3 — Preprocesamiento e ingeniería de features `[ ] FASE COMPLETA`
 
@@ -806,8 +806,8 @@ Marcá `[x]` (sustituyendo el espacio dentro de los corchetes por una `x`) cuand
 
 Estas tareas son los tests que protegen la validez del experimento. Cuando todas estén marcadas, el TFE está blindado contra los errores típicos de backtesting de DRL (reporte §7.1):
 
-- [ ] **F1-T8** — Test dataset alineado
-- [ ] **F2-T7** — Test stylized facts datos reales
+- [x] **F1-T8** — Test dataset alineado
+- [x] **F2-T7** — Test stylized facts datos reales
 - [ ] **F3-T8** — Test scaler solo en train
 - [ ] **F3-T11** — Test no look-ahead en features
 - [ ] **F4-T12** — Test TimeGAN solo train

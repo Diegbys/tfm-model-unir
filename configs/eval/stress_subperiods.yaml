@@ -1,0 +1,21 @@
+# Sub-períodos de estrés a priori sobre el conjunto de test (2023-01-01 a 2025-04-30).
+# Input directo de F7-T5 (evaluación condicional del backtest) y citado en
+# Cap. 4 de la memoria (Planteamiento de la comparativa).
+#
+# Las fechas se han fijado siguiendo el reporte §4.5 y validadas visualmente
+# en notebooks/01_eda.ipynb (sección 4) contra la trayectoria del S&P 500.
+# Si tras la revisión visual el período Q1 2025 no exhibe sell-off claro,
+# comentar/eliminar esa entrada y dejar 2 sub-períodos.
+stress_subperiods:
+  - label: rates_shock_2023
+    start: 2023-03-01
+    end: 2023-10-31
+    rationale: "Subida agresiva de tipos por la Fed; SVB collapse en marzo; máximos del yield 10Y en octubre."
+  - label: ai_rally_2024
+    start: 2024-01-01
+    end: 2024-07-31
+    rationale: "Rally tecnológico liderado por NVDA; alta concentración de retornos."
+  - label: q1_2025_selloff
+    start: 2025-01-01
+    end: 2025-03-31
+    rationale: "Corrección Q1 2025 (confirmar amplitud con datos hasta 2025-04-30)."

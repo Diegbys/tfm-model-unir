@@ -24,6 +24,14 @@ dependencies = [
 dev = [
     "pytest>=8.0,<9.0",
     "ruff>=0.4,<1.0",
+    # análisis / EDA (Fase 2)
+    "matplotlib>=3.8,<4.0",
+    "seaborn>=0.13,<0.14",
+    "scipy>=1.11,<2.0",
+    "statsmodels>=0.14,<0.15",
+    "pyyaml>=6.0,<7.0",
+    "jupyter>=1.0,<2.0",
+    "ipykernel>=6.29,<7.0",
 ]
 
 [build-system]
