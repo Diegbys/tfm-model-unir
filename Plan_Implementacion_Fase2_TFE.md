@@ -702,20 +702,20 @@ Marcá `[x]` (sustituyendo el espacio dentro de los corchetes por una `x`) cuand
 - [x] **F2-T6** — Resumen EDA `eda_summary.md`
 - [x] **F2-T7** — Test `test_real_data_has_fat_tails` pasa
 
-### Fase 3 — Preprocesamiento e ingeniería de features `[ ] FASE COMPLETA`
+### Fase 3 — Preprocesamiento e ingeniería de features `[x] FASE COMPLETA`
 
-- [ ] **F3-T1** — Log-returns + body/range/log_volume
-- [ ] **F3-T2** — Set de 9 indicadores técnicos (pandas-ta)
-- [ ] **F3-T3** — Volatilidad realizada (5d, 21d, ratio)
-- [ ] **F3-T4** — Macro features estacionarias
-- [ ] **F3-T5** — Split cronológico 70/10/20 persistido
-- [ ] **F3-T6** — MinMaxScaler TimeGAN ajustado solo en train
-- [ ] **F3-T7** — RobustScaler PPO ajustado solo en train
-- [ ] **F3-T8** — Test `test_scaler_only_train` pasa
-- [ ] **F3-T9** — `build_state` función pura
-- [ ] **F3-T10** — Secuencias TimeGAN `(N, 24, 9)` persistidas
-- [ ] **F3-T11** — Test `test_no_lookahead_in_features` pasa
-- [ ] **F3-T12** — Script CLI `02_build_features.py`
+- [x] **F3-T1** — Log-returns + body/range/log_volume
+- [x] **F3-T2** — Set de indicadores técnicos (`ta` Bukosabino — pandas-ta exige Py>=3.12); +EMA(60)
+- [x] **F3-T3** — Volatilidad realizada (5d, 21d, ratio)
+- [x] **F3-T4** — Macro features estacionarias (+ ADF informativo)
+- [x] **F3-T5** — Split cronológico 70/10/20 persistido (1704/251/583)
+- [x] **F3-T6** — MinMaxScaler TimeGAN ajustado solo en train (9 cols)
+- [x] **F3-T7** — RobustScaler PPO ajustado solo en train (139 cols)
+- [x] **F3-T8** — Test `test_scaler_only_train` pasa
+- [x] **F3-T9** — `build_state` función pura
+- [x] **F3-T10** — Secuencias TimeGAN `(1681, 24, 9)` persistidas en `.npy`
+- [x] **F3-T11** — Test `test_no_lookahead_in_features` pasa (10 fechas test aleatorias)
+- [x] **F3-T12** — Script CLI `02_build_features.py` + `outputs/preproc/preproc_summary.md`
 
 ### Fase 4 — Modelado generativo (TimeGAN) `[ ] FASE COMPLETA`
 
@@ -808,8 +808,8 @@ Estas tareas son los tests que protegen la validez del experimento. Cuando todas
 
 - [x] **F1-T8** — Test dataset alineado
 - [x] **F2-T7** — Test stylized facts datos reales
-- [ ] **F3-T8** — Test scaler solo en train
-- [ ] **F3-T11** — Test no look-ahead en features
+- [x] **F3-T8** — Test scaler solo en train
+- [x] **F3-T11** — Test no look-ahead en features
 - [ ] **F4-T12** — Test TimeGAN solo train
 - [ ] **F5-T7** — Test compliance Gymnasium
 - [ ] **F5-T8** — Test action space
