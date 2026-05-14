@@ -166,8 +166,11 @@ def download_macro(out_dir: Path = RAW_MACRO_DIR) -> dict[str, Path]:
         if df.empty or len(df) < MIN_EXPECTED_ROWS:
             raise ValueError(f"{name}: macro con solo {len(df)} filas (umbral {MIN_EXPECTED_ROWS})")
         if name == "TNX":
+            # yfinance reporta el yield del 10Y directamente en % (e.g. 4.5 = 4.5%).
+            # Históricamente 2015-2025 el rango es ~0.4 (COVID 2020-08) a ~5.0.
+            # En versiones antiguas yfinance reportaba yield × 10, así que aceptamos hasta 50.
             tnx_close = df["Close"].dropna()
-            if not (tnx_close.between(0.5, 50)).all():
+            if not (tnx_close.between(0.3, 50)).all():
                 raise ValueError(
                     f"TNX fuera de rango razonable: min={tnx_close.min()}, max={tnx_close.max()}"
                 )

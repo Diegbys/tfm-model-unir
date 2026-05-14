@@ -23,7 +23,7 @@ uv run pytest                                  # corre tests
 
 ## Snapshot de datos
 
-- **Fecha de descarga**: <SE_RELLENA_AL_EJECUTAR_F1-T7>
+- **Fecha de descarga**: 2026-05-13 (ejecutado vía `scripts/01_download_data.py`)
 - **Fuente primaria**: yfinance
 - **Fuente fallback**: Stooq
 - **Rango**: 2015-01-01 a 2025-04-30
