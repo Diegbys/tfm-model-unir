@@ -477,7 +477,11 @@ def _evaluate_discriminative(
         synth_scaled = model.recovery(h_fake).cpu().numpy()
     model.train()
 
-    # Eval rápida: 1 repeat, 10 epochs (vs n_repeats=3, epochs=50 del eval final)
+    # Eval rápida: 1 repeat, 10 epochs (vs n_repeats=3, epochs=50 del eval final).
+    # non_overlap_stride=1: el holdout ya es pequeño (~168 secs) e independiente
+    # (10% final cronológico). Subsamplear con stride=24 lo dejaría en ~7 secs y
+    # el balanceo posterior daría una señal de early stopping puro ruido. Con
+    # stride=1 el balanceo iguala 168 reales vs 168 sintéticas → señal usable.
     score = discriminative_score(
         real_seqs=holdout,
         synthetic_seqs=synth_scaled,
@@ -486,7 +490,7 @@ def _evaluate_discriminative(
         batch_size=int(cfg_eval.batch_size),
         lr=float(cfg_eval.lr),
         hidden_dim=int(cfg_eval.classifier_hidden),
-        non_overlap_stride=int(cfg_eval.non_overlap_stride),
+        non_overlap_stride=1,
         device=device,
         seed=seed,
     )

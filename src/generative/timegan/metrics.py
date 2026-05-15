@@ -168,11 +168,17 @@ def discriminative_score(
     n_features = real_seqs.shape[2]
 
     real_sub = _subsample_non_overlap(real_seqs, non_overlap_stride)
-    synth_sub = synthetic_seqs  # no subsample (sintéticas i.i.d. por construcción)
+    # Balanceo de clases (CRÍTICO): el classifier GRU colapsa a la clase
+    # mayoritaria si los tamaños difieren mucho. Con 71 reales (tras stride)
+    # vs 3362 sintéticas, predecir siempre "sintético" da accuracy ≈ 0.98 →
+    # score artificial ≈ 0.48 sin ninguna relación con la calidad del modelo.
+    # El paper Yoon 2019 §5 usa cantidades IGUALES por construcción.
+    n_balanced = min(len(real_sub), len(synthetic_seqs))
     logger.info(
-        "discriminative_score: %d reales (post stride=%d) vs %d sintéticas, "
-        "%d repeats × %d epochs en %s",
-        len(real_sub), non_overlap_stride, len(synth_sub), n_repeats, epochs, dev,
+        "discriminative_score: %d reales (post stride=%d), %d sintéticas → "
+        "balanceado a %d/clase, %d repeats × %d epochs en %s",
+        len(real_sub), non_overlap_stride, len(synthetic_seqs), n_balanced,
+        n_repeats, epochs, dev,
     )
 
     repeats: list[float] = []
@@ -180,12 +186,20 @@ def discriminative_score(
         rep_seed = seed + rep_idx
         torch.manual_seed(rep_seed)
         np.random.seed(rep_seed)
+        rng = np.random.default_rng(rep_seed)
 
-        # Mix etiquetado
-        X = np.concatenate([real_sub, synth_sub], axis=0).astype(np.float32)
+        # Sub-muestreo balanceado: n_balanced de cada clase, sin reemplazo.
+        # Cada repeat muestrea distinto ⇒ mejor estimación de media/std.
+        real_pick = rng.choice(len(real_sub), size=n_balanced, replace=False)
+        synth_pick = rng.choice(len(synthetic_seqs), size=n_balanced, replace=False)
+        real_bal = real_sub[real_pick]
+        synth_bal = synthetic_seqs[synth_pick]
+
+        # Mix etiquetado (clases balanceadas)
+        X = np.concatenate([real_bal, synth_bal], axis=0).astype(np.float32)
         y = np.concatenate(
-            [np.ones(len(real_sub), dtype=np.float32),
-             np.zeros(len(synth_sub), dtype=np.float32)],
+            [np.ones(n_balanced, dtype=np.float32),
+             np.zeros(n_balanced, dtype=np.float32)],
             axis=0,
         )
         X_tr, X_te, y_tr, y_te = train_test_split(
