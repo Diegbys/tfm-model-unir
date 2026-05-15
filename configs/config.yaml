@@ -1,0 +1,33 @@
+# Config raíz Hydra — Fase 4.
+#
+# Composición:
+# - timegan: grupo principal con hiperparámetros del modelo y los 3 sub-grupos
+#   (training, generation, eval).
+# - _self_: deja overrides de este archivo prevalecer sobre los defaults.
+#
+# Multirun (F4-T13): se invoca como
+#     uv run python scripts/03_train_timegan.py --multirun seed=0,42,123
+# Hydra crea entonces 3 subdirectorios bajo hydra.sweep.dir.
+#
+# Override del modo smoke (validación rápida ~15 min):
+#     uv run python scripts/03_train_timegan.py training=smoke seed=42
+
+defaults:
+  - timegan: default
+  - _self_
+
+# Seed global. Se inyecta en torch.manual_seed, np.random.seed y random.seed.
+# El YAML default deja seed=0; los scripts CLI lo sobreescriben con --multirun.
+seed: 0
+
+# Forzar recálculo aunque artefactos del seed ya existan.
+force: false
+
+hydra:
+  run:
+    dir: outputs/hydra/${now:%Y-%m-%d_%H-%M-%S}_seed${seed}
+  sweep:
+    dir: outputs/hydra_multirun/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: seed=${seed}
+  job:
+    chdir: false  # mantener cwd en el root del proyecto (evita imports rotos)

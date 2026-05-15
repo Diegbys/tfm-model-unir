@@ -1,0 +1,32 @@
+# Hiperparámetros del modelo TimeGAN (F4-T3).
+#
+# Literal del ADR §2.2 (Plan_Implementacion_Fase2_TFE.md) salvo iteraciones
+# (decisión 3.3 del plan F4: ratio 1:1:1 = 30k total para acotar tiempo en M4 Pro).
+#
+# Composición de sub-grupos: training, generation, eval.
+
+defaults:
+  - training: default
+  - generation: default
+  - eval: default
+  - _self_
+
+# --- Arquitectura (paper Yoon 2019 §3.1, fig. 2) ---
+seq_len: 24             # 24 días hábiles = ~1 mes (compass §1.6)
+n_features: 9           # 6 equity log-returns + VIX_delta + TNX_delta_bps + DXY_log_ret
+hidden_dim: 24          # = seq_len (parametrización original Yoon 2019)
+num_layers: 3           # Capas GRU por red (obligatorio según compass §2.3)
+module: gru             # NO lstm (GRU más estable para finanzas, compass §2.3)
+noise_dim: 32           # Dimensión del ruido z de entrada al Generator
+
+# --- Optimización ---
+batch_size: 128
+lr: 5.0e-4              # Learning rate común para los 4 optimizadores
+gamma: 1.0              # Peso del adversarial loss en fase joint (L_total = γ·L_GAN + η·L_R + L_S)
+eta: 10.0               # Peso de la pérdida de reconstrucción
+
+# --- Device ---
+# 'auto' resuelve a MPS en Mac M4 Pro, fallback CPU. Override explícito vía CLI:
+#   timegan.device=cuda   (Kaggle T4)
+#   timegan.device=cpu    (debugging determinista)
+device: auto

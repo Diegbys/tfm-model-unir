@@ -1,0 +1,26 @@
+# Override para SMOKE TEST (~15 min en M4 Pro).
+#
+# Uso:
+#     uv run python scripts/03_train_timegan.py timegan/training=smoke seed=42
+#
+# Sirve para validar que el pipeline end-to-end ejecuta sin crash antes de
+# comprometerse a 3-6 h overnight. El gate F4-T14 puede no pasar con estos
+# valores (iters insuficientes); el objetivo es smoke, no calidad.
+
+iters_embedding: 2000
+iters_supervised: 2000
+iters_joint: 5000
+
+eval_every: 500
+patience: 3
+min_iters_before_stop: 1000
+
+d_updates_per_g: 1
+holdout_fraction: 0.10
+
+log_loss_every: 50
+
+checkpoint_dir: models/timegan/run_${seed}
+
+moments_weight: 100.0
+supervised_weight: 100.0

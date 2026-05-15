@@ -1,0 +1,14 @@
+# Parámetros de generación de sintéticos (F4-T5, F4-T6).
+#
+# K=2 sigue el ADR §F4-T5: por cada secuencia real (N_seq=1681), generamos
+# K=2 secuencias sintéticas → ~3362 secuencias sintéticas totales.
+
+K: 2
+
+# Output dir del run. ${seed} se inyecta desde CLI vía multirun.
+output_dir: data/synthetic/run_${seed}
+
+# Precio inicial arbitrario para reconstrucción OHLC (F4-T6).
+# Como los retornos son log-returns, el precio absoluto solo afecta escala;
+# los indicadores técnicos (RSI, MACD, etc.) son invariantes a esto.
+initial_price: 100.0

@@ -249,7 +249,7 @@ La validación de calidad (§2.4) es **crítica**: si TimeGAN no pasa los tests,
 | ID | Descripción | Archivo destino | Criterio de aceptación | Dependencias | Esfuerzo |
 |---|---|---|---|---|---|
 | **F4-T1** | Implementar las 5 redes de TimeGAN en PyTorch: Embedder (E), Recovery (R), Generator (G), Supervisor (S), Discriminator (D). Todas con módulo GRU (más estable que LSTM, reporte §2.3), `num_layers=3`, `hidden_dim=24`. Ver paper Yoon et al. 2019 figura 2. | `src/generative/timegan/model.py` | Las 5 clases instancian sin error; un forward pass con tensor `(B, 24, 9)` aleatorio devuelve shapes correctos | F1-T2 | M |
-| **F4-T2** | Implementar el bucle de entrenamiento en **3 fases secuenciales** (reporte §2.3, OBLIGATORIO no opcional): (1) **Embedding**: entrenar E+R con loss de reconstrucción `L_R = MSE(R(E(x)), x)`; (2) **Supervised**: entrenar S sobre embeddings reales con loss `L_S = MSE(S(E(x)_t), E(x)_{t+1})`; (3) **Joint**: entrenar todo conjuntamente con `gamma·L_GAN + eta·L_R + L_S`, `gamma=1`, `eta=10`. | `src/generative/timegan/train.py` | Loop completo arranca y muestra losses descendentes en cada una de las 3 fases. Logs en TensorBoard | F4-T1 | L |
+| **F4-T2** | Implementar el bucle de entrenamiento en **3 fases secuenciales** (reporte §2.3, OBLIGATORIO no opcional): (1) **Embedding**: entrenar E+R con loss de reconstrucción `L_R = MSE(R(E(x)), x)`; (2) **Supervised**: entrenar S sobre embeddings reales con loss `L_S = MSE(S(E(x)_t), E(x)_{t+1})`; (3) **Joint**: entrenar todo conjuntamente con `gamma·L_GAN + eta·L_R + L_S`, `gamma=1`, `eta=10`. Logs en **MLflow** (ver desviación I al final de la sección). | `src/generative/timegan/train.py` | Loop completo arranca y muestra losses descendentes en cada una de las 3 fases. Logs en MLflow | F4-T1 | L |
 | **F4-T3** | Configurar hiperparámetros de TimeGAN en YAML/Hydra (reporte §2.2): `seq_len=24, hidden_dim=24, num_layers=3, batch_size=128, lr=5e-4, iterations=20000, gamma=1, eta=10, module='gru', noise_dim=32`. **No reformulearlos**. | `configs/timegan/default.yaml` | Config se carga con `OmegaConf.load()`; valores coinciden con reporte §2.2 | — | S |
 | **F4-T4** | Implementar **early stopping** basado en **discriminative score** evaluado periódicamente (cada 1000 iter de la fase joint) sobre un mini-batch del val. Persistir el mejor checkpoint según ese criterio. Reporte §2.3: "reportar mejor modelo según validación discriminative score, no el último". | `src/generative/timegan/train.py` (callback) | Logs muestran discriminative score evaluado cada 1000 iter; mejor checkpoint se guarda en `models/timegan/best.pt` | F4-T2, F4-T8 | M |
 | **F4-T5** | Implementar generación de muestras: dada una semilla aleatoria y un número `K`, producir `K × N_seq` secuencias sintéticas en el espacio escalado `[0,1]`, luego invertir el `MinMaxScaler` persistido para recuperar log-returns multivariados. | `src/generative/timegan/generate.py` (función `generate_synthetic`) | Para `K=2` produce ≈3400 secuencias de shape `(24, 9)`; valores tras inverse_transform están en rangos plausibles de log-returns (típicamente `[-0.1, 0.1]`) | F4-T2, F3-T6 | M |
@@ -259,7 +259,7 @@ La validación de calidad (§2.4) es **crítica**: si TimeGAN no pasa los tests,
 | **F4-T9** | Implementar **predictive score (TSTR)**: entrenar un GRU forecaster que prediga el siguiente log-return dado el pasado, **entrenado sobre sintéticos** y evaluado sobre reales. Reportar MAE y compararlo con un baseline equivalente entrenado en reales (TRTR). Reporte §2.4. | `src/generative/timegan/metrics.py::predictive_score` | Devuelve `{mae_tstr, mae_trtr, gap}`. `gap < 10%` es bueno | F4-T7 | M |
 | **F4-T10** | Visualización **t-SNE / PCA**: proyectar 1000 secuencias reales y 1000 sintéticas a 2D y plotear; deben solaparse visualmente. Guardar figura en `outputs/timegan/tsne.png`. | `src/generative/timegan/metrics.py::tsne_plot` | Función genera figura PNG con 2 nubes de puntos coloreadas | F4-T7 | S |
 | **F4-T11** | Implementar **batería de stylized facts sobre sintéticos** (reporte §2.4 punto 4): kurtosis, skew, ACF retornos, ACF abs(retornos), leverage effect, matriz de correlaciones cruzadas (Frobenius distance vs real). Producir tabla `outputs/timegan/stylized_facts_compare.csv` con 6 métricas × 2 (real, sintético) × 6 activos. | `src/eval/stylized_facts.py::compare_real_vs_synthetic` (reusa F2-T2) | Tabla CSV; gráficos comparativos guardados | F4-T7, F2-T2 | M |
-| **F4-T12** | Test anti-leakage de TimeGAN: validar que `data/processed/timegan_train_sequences.parquet` contiene solo fechas en `train_idx`. Validar que el scaler usado fue `timegan_minmax.joblib` ajustado solo en train. | `tests/test_no_leakage.py::test_timegan_train_only` | Test pasa | F3-T8, F3-T10 | S |
+| **F4-T12** | Test anti-leakage de TimeGAN: validar que `data/processed/timegan_train_sequences.npy` (formato real, ver desviación II) contiene solo fechas en `train_idx`. Validar que el scaler usado fue `timegan_minmax.joblib` ajustado solo en train. | `tests/test_no_leakage.py::test_timegan_train_only` | Test pasa | F3-T8, F3-T10 | S |
 | **F4-T13** | Crear script CLI `scripts/03_train_timegan.py` que orquesta entrenamiento + checkpoint + generación + métricas. Multirun con `seed ∈ {0, 42, 123}` para mostrar reproducibilidad de la calidad. | `scripts/03_train_timegan.py` | Una ejecución produce: checkpoint, sintéticos, tabla de métricas. `--seed` cambia los sintéticos pero no rompe métricas | F4-T4, F4-T7 | M |
 | **F4-T14** | **Gate de calidad**: el script `04_evaluate_synthetic.py` lee la tabla de métricas de F4-T8/T9/T11 y aborta con error si: (a) discriminative_score > 0.30; (b) gap predictive > 25%; (c) ACF(abs(r), lag=1) sintético < 50% del real (volatility clustering ausente). Si pasa, marca los sintéticos como "aptos para Fase 6". | `scripts/04_evaluate_synthetic.py` | Si los criterios fallan, exit code ≠ 0 e informe de qué falló. Si pasan, escribe `data/synthetic/run_<id>/QUALITY_OK.flag` | F4-T13 | S |
 
@@ -278,6 +278,39 @@ La validación de calidad (§2.4) es **crítica**: si TimeGAN no pasa los tests,
 - **Semana 8–9** (parte central del Borrador Intermedio).
 - Entrega afectada: **Borrador Intermedio (Sem. 9)** — para entregarlo, debe haber al menos una corrida exitosa de TimeGAN con métricas decentes; idealmente 1 corrida con gate aprobado.
 - En la memoria, esta fase corresponde a la sección **"Fase 3: Implementación del modelo generativo TimeGAN"** del Cap. 5. Los resultados de F4-T8/9/10/11 son la base de la **subsección de validación de sintéticos** del Cap. 5 (y se vuelven a discutir en Cap. 6).
+
+### Desviaciones documentadas vs ADR original
+
+Durante la ejecución de F4 se tomaron 17 decisiones arquitectónicas no explícitas en el ADR/compass. Se documentan aquí para trazabilidad en la memoria. Todas están justificadas en el plan de implementación (`~/.claude/plans/en-base-a-este-synchronous-storm.md`).
+
+**Correcciones de hechos del ADR original**:
+
+- **I. Tracking**: el ADR menciona TensorBoard en F4-T2 y F4-T4. En la implementación se usa **MLflow** (file-based en `mlruns/`, un único experimento `timegan_phase4`, run por seed). Coherente con el comentario en `pyproject.toml` línea 12. Razón: comparativa entre runs más cómoda y artefactos integrados.
+- **II. Formato de secuencias**: el ADR F4-T12 menciona `.parquet`; el formato real persistido en F3 es **`.npy`** (`data/processed/timegan_train_sequences.npy` shape `(1681, 24, 9)` float32). El test anti-leakage opera sobre `.npy`.
+
+**Decisiones arquitectónicas (tabla)**:
+
+| # | Decisión | Justificación |
+|---|---|---|
+| 0.1 | PyTorch en `[project].dependencies`, no en `dev` | Es runtime de `scripts/03_*.py` y `scripts/04_*.py` |
+| 2.1 | Wrapper `TimeGAN(nn.Module)` agrupando las 5 redes + clases sueltas | `state_dict` único para `torch.save` + testeabilidad |
+| 3.1 | Incluir `L_G_moments` y factor 100× en `L_G_supervised` en fase joint | Paper Yoon original (ecs. 6-7); sin ellos mode collapse casi seguro con N=1681 y seq_len=24. Documentar como "extensión vs ADR literal" |
+| 3.2 | Holdout para early stopping = 10 % final cronológico (≈168 secs terminando en 2021-Q4) | Stride=1 ⇒ leakage trivial entre secuencias adyacentes si se randomiza |
+| 3.3 | Iters embedding:supervised:joint = **1:1:1 → 10k+10k+10k = 30k total** (vs ADR §F4-T2 que fija solo joint=20k) | Acotar tiempo en M4 Pro (~3-6h overnight para 3 seeds). Compass §2.3 admite 10k-20k joint con early stopping. Modo smoke (2k+2k+5k, ~15 min) reservado para validación previa |
+| 3.4 | Device auto-detect MPS → CPU fallback; `use_deterministic_algorithms(warn_only=True)` | M4 Pro tiene MPS estable para GRU; algunas ops MPS no son 100% deterministas |
+| 4.1 | High/Low sintéticos vía `range_rel` gaussiano calibrado sobre TRAIN; `Open_t = Close_{t-1}` | TimeGAN no modela rango intra-día. Limitación documentada en summary |
+| 4.2 | Volume sintético = `exp(N(μ_train, σ_train))` por ticker, **independiente del log_return** | OBV es acumulativo, robusto a este ruido. Limitación documentada |
+| 4.3 | Buffer histórico de 60 días reales aleatorios de TRAIN para warmup EMA(60), descartado tras `build_features` | Alternativas peores (zero-padding inyecta indicadores falsos; descartar reduce N_synth) |
+| 5.1 | Métricas (`discriminative_score`, `predictive_score`) operan en espacio **MinMax-escalado [0,1]**; stylized facts en log-returns originales | Replica paper Yoon §5; rangos uniformes mejoran convergencia del classifier/forecaster |
+| 5.2 | `non_overlap_stride=24` antes de `discriminative_score` (≈70 secs reales no-overlapping × 3 repeats) | Stride=1 inyecta correlación serial que infla accuracy trivialmente (ver `outputs/preproc/preproc_summary.md` §5.4) |
+| 7.1 | Test anti-leakage F4-T12 usa comparación **bit-a-bit** contra recálculo desde features_df + scaler (no MSE-search) | Más robusto y rápido; valida shape e identidad de contenido simultáneamente |
+| 8.1 | Un único `outputs/timegan/timegan_summary.md` consolidado escrito por `scripts/04_*.py` (no por `03_*.py`) | Hasta no evaluar el gate no sabemos qué seeds son aptos |
+| 8.2 | Hydra solo en `scripts/03_*.py` y `scripts/04_*.py`; `scripts/01_*.py` y `scripts/02_*.py` quedan con argparse | No reabrir trabajo de Fases 1/3 |
+| 8.3 | MLflow file-based en `mlruns/`, 1 experimento `timegan_phase4`, run por seed | Sin servidor, simple, suficiente para 3 seeds |
+| 9.1 | Override `timegan.device=cuda` en Kaggle vía Hydra CLI | Linux T4 no tiene MPS; misma codebase, distinto kernel |
+| 9.2 | Reproducibilidad estricta MPS↔CUDA NO se garantiza | Kernels GRU difieren entre devices; documentado en summary |
+
+**Apéndice: ejecución alternativa en Kaggle (T4 GPU)** — `notebooks/02_train_timegan_kaggle.ipynb` permite ejecutar el multirun en Kaggle gratuito (~1-2h vs 3-6h local). Empaqueta los artefactos como `.tar.gz` descargable para integrar en el repo local. Misma codebase, override `timegan.device=cuda` vía CLI. Los seeds 0/42/123 NO reproducen exactamente el run local (decisión 9.2): se reporta el run cuyo gate aprueba.
 
 ---
 

@@ -1,0 +1,35 @@
+# Hiperparámetros de evaluación (F4-T8, T9, T10, T14).
+
+# F4-T8: discriminative score (clasificador GRU 2-capas, |accuracy - 0.5|)
+discriminative:
+  n_repeats: 3              # promediar sobre 3 splits aleatorios (compass §6.1)
+  classifier_hidden: 24
+  classifier_layers: 2
+  test_size: 0.20
+  epochs: 50
+  batch_size: 128
+  lr: 1.0e-3
+  # Decisión 5.2 del plan F4: stride=1 en F3 inyecta correlación serial.
+  # Subsamplear non-overlapping antes del classifier (≈70 secs reales).
+  non_overlap_stride: 24
+
+# F4-T9: predictive score (TSTR)
+predictive:
+  forecaster_hidden: 24
+  forecaster_layers: 2
+  epochs: 50
+  batch_size: 128
+  lr: 1.0e-3
+
+# F4-T10: visualización t-SNE / PCA
+tsne:
+  n_samples: 1000           # 1000 reales + 1000 sintéticas
+  perplexity: 30
+  random_state: 42
+
+# Gate de calidad F4-T14.
+# Thresholds del ADR §F4-T14:
+gate:
+  max_discriminative_score: 0.30
+  max_predictive_gap: 0.25
+  min_acf_abs_ratio: 0.5     # acf|r|_synth ≥ 0.5 × acf|r|_real (volatility clustering)

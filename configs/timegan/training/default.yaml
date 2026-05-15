@@ -1,0 +1,36 @@
+# Hiperparámetros del bucle de entrenamiento (F4-T2, F4-T4).
+#
+# Decisión 3.3 del plan F4: ratio embedding:supervised:joint = 1:1:1 (10k:10k:10k).
+# El ADR §F4-T2 fija solo iters_joint=20000; este plan lo reduce a 10000 por
+# acuerdo con el usuario (acotar tiempo en M4 Pro a ~3-6h totales para 3 seeds).
+# Compass §2.3 admite 10k-20k joint con early stopping por discriminative score.
+
+# Iteraciones por fase
+iters_embedding: 10000
+iters_supervised: 10000
+iters_joint: 10000
+
+# Early stopping en fase joint (F4-T4)
+eval_every: 1000              # cada cuántas iters evaluar discriminative_score
+patience: 5                   # nº evaluaciones sin mejora antes de parar
+min_iters_before_stop: 2000   # no parar antes de iter=2000 (calentamiento)
+
+# Updates D vs G por step (mitigación de "discriminator domina", compass §5)
+d_updates_per_g: 1
+
+# Holdout para early stopping (Decisión 3.2 del plan F4):
+# Reservar 10% final cronológico de las secuencias para evaluar discriminative
+# score durante el training. Cortar por el final preserva independencia frente
+# al stride=1 que comparten secuencias adyacentes en train.
+holdout_fraction: 0.10
+
+# MLflow logging
+log_loss_every: 100          # cada cuántas iters loguear losses a MLflow
+
+# Checkpoint del mejor modelo (early stopping). ${seed} se inyecta desde CLI.
+checkpoint_dir: models/timegan/run_${seed}
+
+# Loss auxiliares del paper Yoon (Decisión 3.1 del plan F4).
+# Sin estos hay mode collapse casi seguro con N=1681 y seq_len=24.
+moments_weight: 100.0        # peso de L_G_moments en fase joint
+supervised_weight: 100.0     # peso adicional de L_S sobre G en fase joint

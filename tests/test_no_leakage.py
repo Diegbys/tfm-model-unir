@@ -164,3 +164,64 @@ def test_no_lookahead_in_features(
             f"Look-ahead detectado en t={t.date()}: feature '{feature_cols[max_idx]}' "
             f"difiere {max_diff:.2e} entre cálculo full y truncado"
         )
+
+
+def test_timegan_train_only(
+    features_df: pd.DataFrame,
+    splits: tuple[pd.DatetimeIndex, pd.DatetimeIndex, pd.DatetimeIndex],
+) -> None:
+    """F4-T12: las secuencias TimeGAN deben provenir SOLO de fechas en train.
+
+    Estrategia bit-a-bit (decisión 7.1 del plan F4):
+
+    1. Recreamos las secuencias esperadas desde
+       ``features_df.loc[train_idx, TIMEGAN_COLUMNS]`` + ``scaler.transform``
+       + ventanas deslizantes (``stride=1``, ``seq_len=24``).
+    2. Las comparamos contra ``load_sequences()`` con ``np.allclose``.
+    3. Verificamos shape: ``len(train_idx) - 24 + 1 = 1681``.
+
+    Si las secuencias se construyeron correctamente, todas las filas deben
+    coincidir bit a bit (tolerancia float). Cualquier discrepancia indica
+    leakage de val/test en las secuencias persistidas.
+    """
+    from src.data.features import TIMEGAN_COLUMNS
+    from src.data.scalers import load_timegan_scaler
+    from src.data.sequence_builder import (
+        DEFAULT_SEQ_LEN,
+        SEQUENCES_PATH,
+        load_sequences,
+    )
+
+    if not SEQUENCES_PATH.exists():
+        pytest.skip(f"{SEQUENCES_PATH} no existe — ejecuta scripts/02_build_features.py primero")
+
+    train_idx, _, _ = splits
+    seq_len = DEFAULT_SEQ_LEN
+
+    # 1. Secuencias persistidas
+    sequences = load_sequences()
+
+    # 2. Shape esperado: (len(train_idx) - seq_len + 1, seq_len, 9)
+    expected_n = len(train_idx) - seq_len + 1
+    assert sequences.shape == (expected_n, seq_len, len(TIMEGAN_COLUMNS)), (
+        f"Shape de secuencias persistidas no coincide: got {sequences.shape}, "
+        f"esperado ({expected_n}, {seq_len}, {len(TIMEGAN_COLUMNS)}). "
+        f"Posible leakage si N > {expected_n}."
+    )
+
+    # 3. Recrear bit-a-bit desde features + scaler + train_idx
+    scaler, scaler_cols = load_timegan_scaler()
+    assert list(scaler_cols) == list(TIMEGAN_COLUMNS), (
+        "scaler_cols ≠ TIMEGAN_COLUMNS — orden de columnas inconsistente"
+    )
+    train_data = features_df.loc[train_idx, list(TIMEGAN_COLUMNS)].to_numpy()
+    scaled = scaler.transform(train_data).astype(np.float32)
+    expected_sequences = np.stack(
+        [scaled[i : i + seq_len] for i in range(expected_n)], axis=0,
+    )
+
+    # 4. Comparación bit-a-bit (atol generosa por float32)
+    assert np.allclose(sequences, expected_sequences, atol=1e-6), (
+        "Secuencias persistidas NO coinciden con recálculo desde train + scaler. "
+        "Posible leakage o re-shuffle de fechas."
+    )
