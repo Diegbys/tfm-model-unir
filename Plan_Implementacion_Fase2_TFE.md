@@ -312,6 +312,28 @@ Durante la ejecución de F4 se tomaron 17 decisiones arquitectónicas no explíc
 
 **Apéndice: ejecución alternativa en Kaggle (T4 GPU)** — `notebooks/02_train_timegan_kaggle.ipynb` permite ejecutar el multirun en Kaggle gratuito (~1-2h vs 3-6h local). Empaqueta los artefactos como `.tar.gz` descargable para integrar en el repo local. Misma codebase, override `timegan.device=cuda` vía CLI. Los seeds 0/42/123 NO reproducen exactamente el run local (decisión 9.2): se reporta el run cuyo gate aprueba.
 
+### Resultados de la Fase 4 y hallazgos para el Capítulo 6
+
+Ejecución del multirun final en Kaggle T4 (3 seeds, config full 10k/10k/10k). Estos resultados y hallazgos son insumo directo de la discusión del **Capítulo 6 (Análisis y limitaciones)** de la memoria.
+
+**Resultado del gate F4-T14:**
+
+| seed | discriminative_score | predictive_gap | ACF\|r\|_ratio | gate |
+|---|---|---|---|---|
+| 42 | 0.2011 | 0.0205 | 0.9036 | ✅ PASS |
+| 123 | 0.3276 | 0.0442 | 1.5321 | ❌ (falla disc por 0.027) |
+| 0 | 0.3506 | 0.8206 | -3.3226 | ❌ (seed divergido) |
+
+**Veredicto**: 1/3 seeds aprueba el gate ⇒ se cumple el criterio MVP del ADR ("idealmente 1 corrida con gate aprobado"). El dataset apto es `data/synthetic/run_42/synthetic_dataset.parquet`, que alimenta al Agente B en F6.
+
+**Hallazgo 1 — Alta varianza entre seeds (inestabilidad de TimeGAN).** De 3 seeds: uno divergió por completo (seed 0: `predictive_gap=0.82`, `ACF|r|_ratio` negativo ⇒ volatility clustering invertido), uno quedó marginal (seed 123: falla `discriminative_score` por solo 0.027), uno pasó limpio (seed 42). Esta varianza es una **propiedad documentada de TimeGAN** (reporte de investigación §10): la literatura recomienda reportar 5-8 seeds y seleccionar el mejor por validación. Es un hallazgo legítimo, no un fallo de implementación — confirma empíricamente la fragilidad del entrenamiento adversarial GAN sobre series financieras.
+
+**Hallazgo 2 — Bug metodológico de evaluación (desbalanceo de clases).** El primer multirun reportaba `discriminative_score≈0.4796` idéntico en los 3 seeds. La causa raíz (ver tests/test_timegan_metrics.py) fue un desbalanceo de clases en la métrica: el classifier colapsaba a la clase mayoritaria. **Lección metodológica para el Cap. 6**: las métricas de evaluación de GANs deben validarse con casos control (real-vs-real → 0, real-vs-ruido → 0.5) antes de confiar en ellas; un número plausible pero constante entre seeds es señal de artefacto, no de medición.
+
+**Hallazgo 3 — Limitación del early stopping.** El classifier interno del early stopping entrena solo 10 epochs (por velocidad) y no logra discriminar sobre el holdout reducido ⇒ `discriminative_score≈0` en todas las evaluaciones ⇒ el checkpoint seleccionado es siempre el del primer eval (joint it≈2000 de 10000). En la práctica el modelo usa ~20% del entrenamiento adversarial configurado. Que seed 42 pase el gate aun así indica que las fases embedding/supervised completas (10k iters cada una) aportan la mayor parte de la calidad. *Future work*: usar más epochs en el classifier de early stopping, o sustituir el criterio por una métrica de stylized facts.
+
+**Hallazgo 4 — Limitaciones de los sintéticos (a discutir incluso con gate aprobado).** (a) Open/High/Low/Volume son ruido gaussiano calibrado sobre TRAIN, no generados por TimeGAN (decisiones 4.1/4.2) ⇒ los indicadores que dependen del rango intradía (ATR, BBANDS, ADX) tienen una base sintética aproximada. (b) TimeGAN tiende a subestimar la kurtosis (fat tails) — verificar en `stylized_facts_compare.csv` y discutir como limitación aunque el gate pase.
+
 ---
 
 ## Fase 5: Diseño del entorno de trading (Gymnasium)
