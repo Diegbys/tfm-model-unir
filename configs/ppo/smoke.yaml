@@ -1,0 +1,32 @@
+# Override SMOKE de los hiperparámetros PPO — validación rápida del pipeline F6.
+#
+# Uso:
+#   uv run python scripts/05_train_agent.py experiment=agent_a ppo=smoke seed=42
+#
+# Config self-contained (misma convención que timegan/training/smoke.yaml): repite
+# todas las claves de ppo/default.yaml y solo reduce total_timesteps y eval_freq.
+# El objetivo es smoke (que el pipeline ejecute sin crash), no la calidad del agente.
+
+learning_rate: 3.0e-4
+n_steps: 1024
+batch_size: 128
+n_epochs: 10
+gamma: 0.99
+gae_lambda: 0.95
+clip_range: 0.2
+ent_coef: 0.01
+vf_coef: 0.5
+max_grad_norm: 0.5
+total_timesteps: 30000
+
+device: cpu
+
+policy_kwargs:
+  net_arch:
+    pi: [128, 128]
+    vf: [128, 128]
+  activation_fn: tanh
+  ortho_init: true
+
+eval_freq: 10000
+use_vecnormalize: true

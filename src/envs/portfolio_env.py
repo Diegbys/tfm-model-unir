@@ -1,8 +1,8 @@
-"""Entorno de trading de cartera con la API Gymnasium — F5-T1/T2/T3.
+"""Entorno de trading de cartera con la API Gymnasium — F5-T1/T2/T3 + F6.
 
 ``PortfolioEnv`` convierte la gestión de una cartera de 6 activos USA + cash en
 un MDP que PPO (Fase 6) puede optimizar. Es **idéntico para el Agente A y el B**;
-lo único que cambia es el ``dataset`` que consume.
+lo único que cambia es el ``dataset`` (o el ``episode_sampler``) que consume.
 
 Convención temporal (pitfall #1 del ADR §Fase 5)
 -------------------------------------------------
@@ -29,9 +29,19 @@ Mecánica de un paso (F5-T3/T4/T5)
 El coste entra dentro del log (ver :mod:`src.envs.rewards`) para que se cumpla
 exacto el invariante de consistencia ``V_T / V_0 == exp(sum(rewards))`` (F5-T9).
 
-Episodio: recorre el split una vez en orden cronológico; ``terminated=True`` el
-último día. ``truncated`` solo si se configura ``max_episode_steps``. La cartera
-inicial es 100% cash (``V_0 = 1.0``).
+Modo recorrido-completo (F5) vs modo episódico (F6)
+---------------------------------------------------
+- **Sin ``episode_sampler``** (F5): un episodio recorre el ``dataset``/``splits_idx``
+  fijos una vez en orden cronológico. Es el modo usado en **evaluación** sobre
+  val/test (idéntico para Agente A y B).
+- **Con ``episode_sampler``** (F6): cada ``reset()`` carga una trayectoria nueva
+  que devuelve el sampler —un callable ``(rng) -> (trayectoria, body_idx)``, ver
+  :class:`~src.data.mixed_dataset.MixedDataset`—. Es el modo de **entrenamiento**
+  PPO. Los espacios de observación/acción son constantes, así que SB3 puede
+  vectorizar el entorno sin problema.
+
+``terminated=True`` el último día operable. ``truncated`` solo si se configura
+``max_episode_steps``. La cartera inicial es 100% cash (``V_0 = 1.0``).
 """
 from __future__ import annotations
 
@@ -55,7 +65,14 @@ class PortfolioEnv(gym.Env):
 
     metadata = {"render_modes": []}
 
-    def __init__(self, dataset: pd.DataFrame, splits_idx: pd.DatetimeIndex, config) -> None:
+    def __init__(
+        self,
+        dataset: pd.DataFrame | None = None,
+        splits_idx: pd.DatetimeIndex | None = None,
+        config=None,
+        *,
+        episode_sampler=None,
+    ) -> None:
         """Construye el entorno.
 
         Parameters
@@ -65,14 +82,23 @@ class PortfolioEnv(gym.Env):
             6 ``{ticker}_AdjClose``), índice ``DatetimeIndex`` creciente. El env
             escala las features internamente con el ``RobustScaler`` ajustado en
             train y deriva los retornos de los activos desde las columnas
-            ``AdjClose``. Agente A y B solo intercambian este DataFrame.
+            ``AdjClose``. Requerido si no se pasa ``episode_sampler``.
         splits_idx:
-            Fechas operables del split (train / val / test).
+            Fechas operables del split (train / val / test). Requerido si no se
+            pasa ``episode_sampler``.
         config:
             Mapping (dict o ``DictConfig``) con las claves de
             ``configs/env/portfolio_default.yaml``.
+        episode_sampler:
+            (Modo episódico, F6) Callable ``(rng) -> (trayectoria, body_idx)``.
+            Si se pasa, cada ``reset()`` carga una trayectoria nueva del sampler
+            en vez de recorrer un split fijo. ``rng`` es ``None`` (el sampler usa
+            su RNG interno) o un ``np.random.Generator`` (cuando ``reset`` recibe
+            un ``seed``, para reproducibilidad).
         """
         super().__init__()
+        if config is None:
+            raise ValueError("PortfolioEnv: 'config' es obligatorio")
 
         # --- config (F5-T6) ---
         self.window = int(config["window"])
@@ -83,29 +109,73 @@ class PortfolioEnv(gym.Env):
         self.reward_type = str(config["reward_type"])
         max_steps = config.get("max_episode_steps", None)
         self._max_episode_steps = None if max_steps is None else int(max_steps)
+        self._episode_sampler = episode_sampler
 
-        # --- validación del dataset ---
+        # --- scaler de train: escala las features de cada trayectoria (sin leakage) ---
+        self._scaler, self._ppo_cols = load_ppo_scaler()
+        self._n_features = len(self._ppo_cols)
+
+        # --- columnas AdjClose de los 6 activos (estáticas) ---
+        self._adj_cols = [
+            f"{_safe_filename(t)}_AdjClose" for t in EQUITY_TICKERS_YF
+        ]
+
+        # --- espacios Gymnasium (F5-T1): constantes, solo dependen de scaler+config ---
+        obs_dim = self.window * self._n_features + self.n_weights
+        self.observation_space = gym.spaces.Box(
+            low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
+        )
+        self.action_space = gym.spaces.Box(
+            low=-1.0, high=1.0, shape=(self.n_weights,), dtype=np.float32
+        )
+
+        # --- carga de la trayectoria inicial ---
+        if episode_sampler is None:
+            if dataset is None or splits_idx is None:
+                raise ValueError(
+                    "PortfolioEnv: sin 'episode_sampler' hay que pasar 'dataset' "
+                    "y 'splits_idx'"
+                )
+            self._load_trajectory(dataset, splits_idx)
+        else:
+            # Modo episódico: una trayectoria inicial (con rng aislado) puebla
+            # _tradeable / n_tradeable_days; el primer reset() la reemplaza.
+            self._load_trajectory(*episode_sampler(np.random.default_rng(0)))
+
+        # --- estado del episodio (se inicializa en reset) ---
+        self.render_mode = None
+        self._ptr = 0
+        self._V = 1.0
+        self._cum_cost = 0.0
+        self._w = np.zeros(self.n_weights, dtype=np.float64)
+
+    # --- carga de trayectoria (F5 + F6) --------------------------------------
+
+    def _load_trajectory(
+        self, dataset: pd.DataFrame, splits_idx: pd.DatetimeIndex
+    ) -> None:
+        """Prepara features escaladas, retornos y días operables de una trayectoria.
+
+        Lo llama ``__init__`` (modo recorrido-completo) y ``reset()`` (modo
+        episódico, una trayectoria nueva por episodio).
+        """
         if not isinstance(dataset.index, pd.DatetimeIndex):
             raise TypeError("PortfolioEnv: dataset.index debe ser DatetimeIndex")
         if not dataset.index.is_monotonic_increasing:
             raise ValueError("PortfolioEnv: dataset.index no es creciente")
         self._dates = dataset.index
 
-        # --- features escaladas para la observación (sin leakage: scaler de train) ---
-        scaler, ppo_cols = load_ppo_scaler()
-        self._scaled = transform_with_scaler(dataset, scaler, ppo_cols)
-        self._n_features = len(ppo_cols)
+        # Features escaladas para la observación (scaler ajustado en train).
+        self._scaled = transform_with_scaler(dataset, self._scaler, self._ppo_cols)
 
-        # --- retornos simples de los 6 activos para la recompensa ---
-        prefixes = [_safe_filename(t) for t in EQUITY_TICKERS_YF]
-        adj_cols = [f"{p}_AdjClose" for p in prefixes]
-        missing = [c for c in adj_cols if c not in dataset.columns]
+        # Retornos simples de los 6 activos para la recompensa.
+        missing = [c for c in self._adj_cols if c not in dataset.columns]
         if missing:
             raise ValueError(f"PortfolioEnv: faltan columnas AdjClose {missing}")
-        returns = dataset[adj_cols].pct_change(fill_method=None)
+        returns = dataset[self._adj_cols].pct_change(fill_method=None)
         self._returns = returns.to_numpy(dtype=np.float64)  # (N, n_assets)
 
-        # --- días operables: posiciones del split con ventana completa previa ---
+        # Días operables: posiciones del split con ventana completa previa.
         pos_by_date = {d: i for i, d in enumerate(self._dates)}
         tradeable = [
             pos_by_date[d]
@@ -119,22 +189,6 @@ class PortfolioEnv(gym.Env):
             )
         self._tradeable = tradeable
         self.n_tradeable_days = len(tradeable)
-
-        # --- espacios Gymnasium (F5-T1) ---
-        obs_dim = self.window * self._n_features + self.n_weights
-        self.observation_space = gym.spaces.Box(
-            low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
-        )
-        self.action_space = gym.spaces.Box(
-            low=-1.0, high=1.0, shape=(self.n_weights,), dtype=np.float32
-        )
-
-        # --- estado del episodio (se inicializa en reset) ---
-        self.render_mode = None
-        self._ptr = 0
-        self._V = 1.0
-        self._cum_cost = 0.0
-        self._w = np.zeros(self.n_weights, dtype=np.float64)
 
     # --- proyecciones puras (F5-T2 / F5-T3) ----------------------------------
 
@@ -187,8 +241,16 @@ class PortfolioEnv(gym.Env):
         }
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
-        """Reinicia el episodio al primer día operable; cartera inicial 100% cash."""
+        """Reinicia el episodio al primer día operable; cartera inicial 100% cash.
+
+        En modo episódico (F6) además carga una trayectoria nueva del
+        ``episode_sampler``. Con ``seed`` el sampler recibe un RNG determinista
+        (reproducibilidad); sin ``seed`` usa su RNG interno (episodios diversos).
+        """
         super().reset(seed=seed)
+        if self._episode_sampler is not None:
+            sampler_rng = None if seed is None else np.random.default_rng(seed)
+            self._load_trajectory(*self._episode_sampler(sampler_rng))
         self._ptr = 0
         self._V = 1.0
         self._cum_cost = 0.0

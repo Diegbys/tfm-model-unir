@@ -225,3 +225,61 @@ def test_episodio_recorre_todo_el_split(train_env: PortfolioEnv) -> None:
         _, _, terminated, truncated, _ = train_env.step(accion)
         pasos += 1
     assert pasos == train_env.n_tradeable_days
+
+
+# --- F6: modo episódico (sampler de trayectorias) ----------------------------
+
+
+@pytest.fixture
+def episodic_env(features_df: pd.DataFrame, env_config) -> PortfolioEnv:
+    """PortfolioEnv en modo episódico, alimentado por un MixedDataset solo-real."""
+    from src.data.mixed_dataset import MixedDataset
+
+    train_idx, _, _ = chronological_split(features_df)
+    mixed = MixedDataset(features_df, train_idx, synthetic_ratio=0.0, seed=0)
+    return PortfolioEnv(config=env_config, episode_sampler=mixed.sample_episode)
+
+
+def test_modo_episodico_23_dias_operables(episodic_env: PortfolioEnv) -> None:
+    """Cada episodio episódico tiene 23 días operables (cuerpo de 24 menos el baseline)."""
+    episodic_env.reset(seed=0)
+    assert episodic_env.n_tradeable_days == 23
+
+
+def test_modo_episodico_reset_sin_seed_remuestrea(episodic_env: PortfolioEnv) -> None:
+    """Dos reset() sin seed cargan trayectorias distintas (se re-muestrea el episodio)."""
+    obs1, _ = episodic_env.reset()
+    obs2, _ = episodic_env.reset()
+    assert not np.array_equal(obs1, obs2), "dos reset dieron la misma obs — no se re-muestrea"
+
+
+def test_modo_episodico_reset_con_seed_reproducible(episodic_env: PortfolioEnv) -> None:
+    """reset(seed=N) es reproducible: dos llamadas con el mismo seed dan la misma obs."""
+    obs1, _ = episodic_env.reset(seed=7)
+    obs2, _ = episodic_env.reset(seed=7)
+    assert np.array_equal(obs1, obs2)
+
+
+def test_modo_episodico_obs_shape_estable(episodic_env: PortfolioEnv) -> None:
+    """La observación conserva el shape del observation_space tras re-muestrear."""
+    for _ in range(3):
+        obs, _ = episodic_env.reset()
+        assert obs.shape == episodic_env.observation_space.shape
+        assert episodic_env.observation_space.contains(obs)
+
+
+def test_modo_episodico_gymnasium_compliance(episodic_env: PortfolioEnv) -> None:
+    """F5-T7 extendido: check_env de Gymnasium pasa también en modo episódico."""
+    check_env(episodic_env)
+
+
+def test_modo_episodico_episodio_termina_en_23_pasos(episodic_env: PortfolioEnv) -> None:
+    """Un episodio episódico recorre exactamente sus 23 días operables."""
+    episodic_env.reset(seed=0)
+    accion = np.zeros(episodic_env.action_space.shape, dtype=np.float32)
+    pasos = 0
+    terminated = truncated = False
+    while not (terminated or truncated):
+        _, _, terminated, truncated, _ = episodic_env.step(accion)
+        pasos += 1
+    assert pasos == 23

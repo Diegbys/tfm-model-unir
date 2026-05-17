@@ -1,0 +1,8 @@
+# Experimento Agente B — PPO entrenado con datos reales + sintéticos TimeGAN (F6-T2).
+#
+# synthetic_ratio=0.667 ⇒ ratio real:sintético ≈ 1:2 (ADR §2.6): en cada reset del
+# entorno, 1/3 episodio real y 2/3 episodio sintético. El dataset sintético es el del
+# único seed que aprobó el gate de calidad de F4 (run_42, ver §Resultados de la Fase 4).
+name: agent_b
+synthetic_ratio: 0.667
+synthetic_dataset_path: data/synthetic/run_42/synthetic_dataset.parquet

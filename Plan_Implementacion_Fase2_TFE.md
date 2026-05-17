@@ -453,6 +453,28 @@ La regla de oro para que la comparativa A vs B sea válida es **idéntico todo e
 - Las 5 seeds completas para análisis estadístico se hacen entre Sem. 10 y 12 y se reportan en el **Borrador Final (Sem. 15)**.
 - En la memoria, esta fase corresponde a la sección **"Fase 5: Entrenamiento de los agentes A y B"** del Cap. 5.
 
+### Desviaciones documentadas vs ADR — Fase 6
+
+Durante la ejecución de F6 se tomaron las siguientes decisiones no explícitas (o
+divergentes) respecto al ADR/compass. Se documentan para trazabilidad en la
+memoria (Cap. 6). El plan de implementación es
+`~/.claude/plans/en-base-a-este-delegated-wadler.md`.
+
+| # | Decisión | Justificación |
+|---|---|---|
+| F6.1 | **SB3 ≥ 2.4** (el ADR §3.1 dice ≥ 2.3); se instaló SB3 2.8.0 | El soporte de `gymnasium 1.0` —ya instalado en F5— entró en SB3 2.4.0; SB3 2.3.x solo admite gymnasium <1.0. |
+| F6.2 | **`VecFrameStack` omitido** (F6-T3 lo incluía) | El `PortfolioEnv` ya incorpora una ventana de 30 días en cada observación (compass §3.6). Apilar 10 ventanas que solapan 29/30 multiplicaría ×10 la dimensión de observación (4177 → 41770) con información casi redundante. `net_arch=[128,128]` se mantiene literal. |
+| F6.3 | **Episodios uniformes de 24 pasos para A y B**; el `PortfolioEnv` de F5 gana un modo episódico retrocompatible | Los sintéticos de F4 son 3362 secuencias de 24 pasos (`MultiIndex`); no caben en el modelo "episodio = split completo" de F5. El env acepta ahora un `episode_sampler`; sin él conserva el comportamiento de F5 (el usado en evaluación). F6-T4 se realiza vía ese sampler. |
+| F6.4 | **Warmup real para episodios sintéticos; 23 días operables/episodio** | Una secuencia sintética de 24 pasos no llena la ventana de 30 días → se le antepone un buffer de 30 días reales de train. El retorno de la primera fila del cuerpo cruzaría la frontera warmup↔sintético (precios reales de miles vs sintéticos que arrancan en 100) y sería espurio: esa fila no es operable ⇒ 23 días operables. *Limitación a discutir en Cap. 6*: durante un episodio sintético la ventana de observación es en parte real. |
+| F6.5 | **`gamma=0.99` con episodios de 23 pasos** | El horizonte efectivo queda acotado por la longitud del episodio — limitación inherente a `seq_len=24` de TimeGAN. Se mantiene `gamma=0.99` del ADR §3.4 ("no reformular"). |
+| F6.6 | **Config Hydra raíz separada** `configs/train_ppo.yaml` para `scripts/05_*.py` | El script 03 (TimeGAN) conserva su `config.yaml`; no se reabre F4. El script 05 compone los grupos `ppo`, `env`, `experiment`. |
+| F6.7 | Métricas `sharpe_ratio` / `max_drawdown` en `src/eval/metrics.py` (semilla de F7-T2) | El `ValidationEvalCallback` necesita Sharpe/MDD; se crean mínimas y **F7-T2 extenderá** el módulo a las 9 métricas. |
+
+**Estado de la fase**: F6-T1…T9 y T12 implementados y validados con un smoke de
+1 seed (`ppo=smoke`, 30k timesteps) para Agente A y B. **F6-T10/T11** (5 seeds ×
+A/B, 1M timesteps) quedan pendientes de ejecución vía
+`notebooks/03_train_ppo_kaggle.ipynb`.
+
 ---
 
 ## Fase 7: Backtesting y evaluación
@@ -804,18 +826,18 @@ Marcá `[x]` (sustituyendo el espacio dentro de los corchetes por una `x`) cuand
 
 ### Fase 6 — Entrenamiento PPO (Agente A y Agente B) `[ ] FASE COMPLETA`
 
-- [ ] **F6-T1** — Config Hydra hiperparámetros PPO
-- [ ] **F6-T2** — Configs experimentos `agent_a` y `agent_b`
-- [ ] **F6-T3** — Factory `make_env` con `VecFrameStack`
-- [ ] **F6-T4** — `MixedDataset` real+sintético operativo
-- [ ] **F6-T5** — Wrapper `train_ppo_agent` con MLflow
-- [ ] **F6-T6** — Callback evaluación periódica sobre val
-- [ ] **F6-T7** — `set_global_seed` reproducible
-- [ ] **F6-T8** — Script `05_train_agent.py` con Hydra multirun
-- [ ] **F6-T9** — Igualación de timesteps verificada
+- [x] **F6-T1** — Config Hydra hiperparámetros PPO
+- [x] **F6-T2** — Configs experimentos `agent_a` y `agent_b`
+- [x] **F6-T3** — Factory `make_env` (sin `VecFrameStack`, desv. F6.2)
+- [x] **F6-T4** — `MixedDataset` real+sintético operativo
+- [x] **F6-T5** — Wrapper `train_ppo_agent` con MLflow
+- [x] **F6-T6** — Callback evaluación periódica sobre val
+- [x] **F6-T7** — `set_global_seed` reproducible
+- [x] **F6-T8** — Script `05_train_agent.py` con Hydra multirun
+- [x] **F6-T9** — Igualación de timesteps verificada
 - [ ] **F6-T10** — **Agente A**: 5 seeds entrenados (modelos persistidos)
 - [ ] **F6-T11** — **Agente B**: 5 seeds entrenados (modelos persistidos)
-- [ ] **F6-T12** — Test `test_a_vs_b_comparable` pasa
+- [x] **F6-T12** — Test `test_a_vs_b_comparable` pasa
 
 ### Fase 7 — Backtesting y evaluación `[ ] FASE COMPLETA`
 
@@ -870,7 +892,7 @@ Estas tareas son los tests que protegen la validez del experimento. Cuando todas
 - [ ] **F5-T8** — Test action space
 - [ ] **F5-T9** — Test reward consistency
 - [ ] **F5-T10** — Test transaction costs
-- [ ] **F6-T12** — Test A vs B comparables
+- [x] **F6-T12** — Test A vs B comparables
 - [ ] **F7-T8** — Tests métricas contra valores conocidos
 
 ---

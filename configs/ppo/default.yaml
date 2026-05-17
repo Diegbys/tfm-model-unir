@@ -1,0 +1,36 @@
+# Hiperparámetros PPO — F6-T1.
+#
+# Literal del ADR §3.4 / compass §3.4 ("No reformular"). Idénticos para Agente A y
+# Agente B: la comparativa solo varía el dataset (regla de oro, ADR §Fase 6).
+#
+# Override del modo smoke (validación rápida del pipeline):
+#   uv run python scripts/05_train_agent.py experiment=agent_a ppo=smoke seed=42
+
+# --- Algoritmo PPO (Stable-Baselines3) ---
+learning_rate: 3.0e-4
+n_steps: 1024            # transiciones por rollout antes de cada update
+batch_size: 128
+n_epochs: 10
+gamma: 0.99
+gae_lambda: 0.95
+clip_range: 0.2
+ent_coef: 0.01           # CRÍTICO (compass §3.7): evita concentrar todo en 1 activo
+vf_coef: 0.5
+max_grad_norm: 0.5
+total_timesteps: 1000000
+
+# Device: cpu es lo óptimo para MlpPolicy (redes pequeñas; SB3 desaconseja GPU
+# salvo CNN). El cuello de botella real es el step del entorno, que corre en CPU.
+device: cpu
+
+# --- Red actor-critic (compass §3.5) ---
+policy_kwargs:
+  net_arch:
+    pi: [128, 128]
+    vf: [128, 128]
+  activation_fn: tanh    # el trainer lo resuelve a torch.nn.Tanh
+  ortho_init: true
+
+# --- Entrenamiento / evaluación (F6-T6) ---
+eval_freq: 50000         # cada cuántos steps evalúa ValidationEvalCallback sobre val
+use_vecnormalize: true   # VecNormalize(norm_reward=True, norm_obs=False) en el env de train

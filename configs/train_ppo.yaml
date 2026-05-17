@@ -1,0 +1,32 @@
+# Config raíz de Hydra para scripts/05_train_agent.py — Fase 6.
+#
+# Composición: grupos `ppo` (hiperparámetros PPO), `env` (PortfolioEnv) y
+# `experiment` (agent_a / agent_b). `ppo` y `env` son IDÉNTICOS para A y B; el
+# experimento solo cambia el origen de los datos (regla de oro, ADR §Fase 6).
+#
+#   uv run python scripts/05_train_agent.py experiment=agent_a seed=42
+#   uv run python scripts/05_train_agent.py experiment=agent_b ppo=smoke seed=42
+#   uv run python scripts/05_train_agent.py -m experiment=agent_a,agent_b seed=0,1,42,123,1337
+#
+# Script 03 (TimeGAN) conserva su propio config.yaml; este archivo no lo afecta.
+
+defaults:
+  - ppo: default
+  - env: portfolio_default
+  - experiment: agent_a
+  - _self_
+
+# Seed global. El YAML deja seed=0; los CLI lo sobreescriben (--multirun para F6-T10/T11).
+seed: 0
+
+# Forzar reentrenamiento aunque el modelo del seed ya exista.
+force: false
+
+hydra:
+  run:
+    dir: outputs/ppo_runs/${experiment.name}/seed${seed}
+  sweep:
+    dir: outputs/ppo_runs_multirun/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${experiment.name}/seed${seed}
+  job:
+    chdir: false  # mantener cwd en el root del proyecto (evita imports rotos)

@@ -1,0 +1,8 @@
+# Experimento Agente A — PPO entrenado SOLO con datos reales de train (F6-T2).
+#
+# synthetic_ratio=0.0 ⇒ MixedDataset muestrea siempre episodios reales; los
+# sintéticos no intervienen. ppo/default y env/portfolio_default se heredan vía
+# la config raíz train_ppo.yaml.
+name: agent_a
+synthetic_ratio: 0.0
+synthetic_dataset_path: null

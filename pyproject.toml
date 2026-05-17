@@ -32,6 +32,10 @@ dependencies = [
     # Fase 5: entorno de trading. API estándar Gymnasium para RL; Stable-Baselines3
     # (Fase 6) se integra de forma nativa sobre ella.
     "gymnasium>=0.29,<1.1",
+    # Fase 6: agentes PPO. SB3 >=2.4 (no >=2.3 del ADR): el soporte de gymnasium 1.0
+    # —ya instalado en F5— entró en SB3 2.4.0. sb3-contrib (RecurrentPPO) no se usa:
+    # MlpPolicy + la ventana del propio entorno bastan; LSTM queda como future work.
+    "stable-baselines3>=2.4,<3.0",
 ]
 
 [project.optional-dependencies]
