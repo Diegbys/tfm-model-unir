@@ -789,18 +789,18 @@ Marcá `[x]` (sustituyendo el espacio dentro de los corchetes por una `x`) cuand
 - [ ] **F4-T13** — Script `03_train_timegan.py` con multirun
 - [ ] **F4-T14** — Gate de calidad superado (`QUALITY_OK.flag`)
 
-### Fase 5 — Diseño del entorno de trading (Gymnasium) `[ ] FASE COMPLETA`
+### Fase 5 — Diseño del entorno de trading (Gymnasium) `[x] FASE COMPLETA`
 
-- [ ] **F5-T1** — Clase `PortfolioEnv` con API Gymnasium
-- [ ] **F5-T2** — Proyección al simplex via softmax
-- [ ] **F5-T3** — Drift de pesos correcto
-- [ ] **F5-T4** — Cálculo de costes de transacción
-- [ ] **F5-T5** — Función de recompensa
-- [ ] **F5-T6** — Config Hydra del entorno
-- [ ] **F5-T7** — Test compliance Gymnasium (`check_env`) pasa
-- [ ] **F5-T8** — Test `test_action_space` pasa
-- [ ] **F5-T9** — Test `test_reward_consistency` pasa
-- [ ] **F5-T10** — Test `test_transaction_costs` pasa
+- [x] **F5-T1** — Clase `PortfolioEnv` con API Gymnasium
+- [x] **F5-T2** — Proyección al simplex via softmax
+- [x] **F5-T3** — Drift de pesos correcto
+- [x] **F5-T4** — Cálculo de costes de transacción
+- [x] **F5-T5** — Función de recompensa
+- [x] **F5-T6** — Config Hydra del entorno
+- [x] **F5-T7** — Test compliance Gymnasium (`check_env`) pasa
+- [x] **F5-T8** — Test `test_action_space` pasa
+- [x] **F5-T9** — Test `test_reward_consistency` pasa
+- [x] **F5-T10** — Test `test_transaction_costs` pasa
 
 ### Fase 6 — Entrenamiento PPO (Agente A y Agente B) `[ ] FASE COMPLETA`
 

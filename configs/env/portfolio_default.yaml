@@ -1,0 +1,14 @@
+# Configuración del entorno de trading PortfolioEnv — F5-T6.
+#
+# Valores literales del ADR (Plan_Implementacion_Fase2_TFE.md §Fase 5, "No
+# reformular"). Se compone como grupo Hydra `env` en los experimentos de Fase 6
+# (configs/experiment/agent_{a,b}.yaml heredarán de aquí).
+
+n_assets: 6                       # 6 activos USA; "cash" es el 7º componente virtual
+window: 30                        # ventana de observación en días hábiles
+transaction_cost_pct: 0.001       # comisión 10 bps; ablation con 0.0005 / 0.002
+slippage_pct: 0.0                 # slippage adicional sobre la comisión (0 por defecto)
+frame_stack_n: 10                 # lo consume Fase 6 (VecFrameStack); el env lo ignora
+action_includes_cash: true        # la acción tiene n_assets + 1 componentes
+reward_type: log_return_minus_costs
+max_episode_steps: null           # null => el episodio recorre el split completo
