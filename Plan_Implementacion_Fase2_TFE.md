@@ -470,10 +470,79 @@ memoria (Cap. 6). El plan de implementación es
 | F6.6 | **Config Hydra raíz separada** `configs/train_ppo.yaml` para `scripts/05_*.py` | El script 03 (TimeGAN) conserva su `config.yaml`; no se reabre F4. El script 05 compone los grupos `ppo`, `env`, `experiment`. |
 | F6.7 | Métricas `sharpe_ratio` / `max_drawdown` en `src/eval/metrics.py` (semilla de F7-T2) | El `ValidationEvalCallback` necesita Sharpe/MDD; se crean mínimas y **F7-T2 extenderá** el módulo a las 9 métricas. |
 
-**Estado de la fase**: F6-T1…T9 y T12 implementados y validados con un smoke de
-1 seed (`ppo=smoke`, 30k timesteps) para Agente A y B. **F6-T10/T11** (5 seeds ×
-A/B, 1M timesteps) quedan pendientes de ejecución vía
-`notebooks/03_train_ppo_kaggle.ipynb`.
+**Estado de la fase**: COMPLETA. F6-T1…T9 y T12 implementados con TDD y validados
+con tests; F6-T10/T11 ejecutados en local — 10 corridas (5 seeds × Agente A/B,
+1M timesteps c/u), modelos en `outputs/ppo_runs/`. Sin patologías de entrenamiento:
+la entropía de la política no colapsa en ningún seed (ningún agente concentra todo
+en un activo). El veredicto cuantitativo A vs B se produce en F7/F8 (backtest
+out-of-sample + tests estadísticos), no en validación. El notebook
+`notebooks/03_train_ppo_kaggle.ipynb` queda como alternativa de cómputo.
+
+### Resultados de la Fase 6 y hallazgos para el Capítulo 6
+
+Ejecución del multirun F6-T10/T11 en local (M4 Pro, CPU): 10 corridas, 5 seeds
+`{0, 1, 42, 123, 1337}` × Agente A/B, 1M timesteps cada una. La métrica de
+validación es el Sharpe del **mejor checkpoint** sobre el split de val (2022) —el
+criterio de selección del `ValidationEvalCallback` (F6-T6)—. Estos resultados son
+insumo directo del **Capítulo 6 (Análisis y limitaciones)**; el veredicto
+cuantitativo A vs B se produce en F7/F8 (backtest out-of-sample + tests estadísticos),
+no en validación.
+
+**Resumen (sobre val 2022, mejor checkpoint):**
+
+| Métrica | Agente A (real) | Agente B (real+sintético) |
+|---|---|---|
+| Sharpe val — media entre seeds | −0.633 | −0.711 |
+| Sharpe val — desv. entre seeds | 0.227 | **0.101** |
+| Retorno val — media entre seeds | −27.1 % | −29.1 % |
+| Retorno val — desv. entre seeds | 0.064 | **0.027** |
+| Sharpe del modelo final — media | −1.114 | −0.971 |
+
+**Hallazgo 1 — Los agentes no baten al buy-and-hold en validación.** Todos los
+Sharpe de val son negativos y el mejor checkpoint pierde entre un 19 % y un 34 %
+en 2022 (media A −27 %, B −29 %). El universo de 6 activos es *tech-heavy* (^NDX,
+AAPL, AMZN, NFLX, NVDA) y 2022 fue un crash tecnológico (NASDAQ −33 %, varias de
+estas acciones ≈ −50 %): los agentes no aprenden a refugiarse en cash. Es una
+limitación de desempeño absoluto, documentada para el DRL en finanzas (reporte
+§3.7, §7) y agravada por el *mismatch* de horizonte (entrenan con episodios de 23
+pasos, se evalúan sobre una corrida continua de 251 días — desviación F6.4/F6.5).
+**No invalida la comparativa**: entorno, hiperparámetros y cómputo son idénticos
+para A y B; lo único que cambia es el dataset. El TFE es un estudio comparativo,
+no un sistema de trading rentable.
+
+**Hallazgo 2 — La aumentación con sintéticos reduce a menos de la mitad la
+varianza entre seeds.** La desviación entre seeds cae de 0.227 a 0.101 en el
+Sharpe y de 0.064 a 0.027 en el retorno al pasar de A a B. Es coherente con la
+hipótesis del TFE: los escenarios sintéticos estabilizan el entrenamiento frente
+a la conocida alta varianza entre seeds del PPO (reporte §3.7, §4.7). Es el
+hallazgo más favorable a la tesis hasta ahora, aunque **preliminar** (medido en
+val, no en test).
+
+**Hallazgo 3 — Fuerte sobreajuste a train; el modelo final es mucho peor que el
+mejor checkpoint.** En los 10 seeds el Sharpe del modelo final es netamente
+inferior al del mejor checkpoint (A: −0.63 → −1.11; B: −0.71 → −0.97). El PPO
+sobreajusta a train y degrada en val tras su punto óptimo. Dos lecturas para el
+Cap. 6: (a) valida la decisión F6-T6 —seleccionar por Sharpe en val en lugar de
+usar el modelo final—; (b) el Agente B degrada menos que el A (−0.97 vs −1.11),
+otra señal, débil, de mayor robustez.
+
+**Hallazgo 4 — Sin colapso de entropía ni concentración en un activo.** La
+entropía de la política se mantiene alta toda la corrida (`entropy_loss` ≈ −10 en
+A, ≈ −18 en B; sin tender a 0). El riesgo F6 #2 (el agente concentra todo en un
+activo) **no se materializó**: `ent_coef=0.01` cumplió su función. El Agente B
+mantiene una política más estocástica (std ≈ 4.1 frente a ≈ 1.8 del A): la
+diversidad de dinámicas sintéticas impide que B converja a una política estrecha.
+
+**Hallazgo 5 — Sin punto de convergencia estable.** El mejor checkpoint aparece
+en timesteps muy dispares (Agente A entre 200k y 1M; Agente B entre 100k y 1M).
+No hay un punto de convergencia consistente entre seeds — confirma la
+inestabilidad del PPO sobre series financieras (reporte §3.7) y justifica la
+evaluación periódica con checkpointing de F6-T6.
+
+**Hallazgo 6 — Igualación de cómputo verificada (F6-T9).** Las 10 corridas
+consumieron exactamente 1 000 448 timesteps. El Agente B ve un dataset ~3× mayor
+pero **no entrena más**: el factor diferencial es la diversidad de muestras, no el
+cómputo (reporte §7.5). Verificado por `tests/test_experiments.py`.
 
 ---
 
@@ -526,6 +595,104 @@ Comparamos también contra **3 baselines pasivos** (reporte §7.2) para acknowle
 - **Semana 12–13** (mejoras del Borrador Intermedio + finalización del desarrollo).
 - Entrega afectada: **Borrador Final (Sem. 15)** — los CSV y plots de esta fase son la materia prima del **Cap. 5 (resultados de la comparativa)** y del **Cap. 6 (discusión)**.
 - En el cronograma UNIR, la "discusión y análisis de resultados" es la actividad central de la Sem. 13.
+
+### Desviaciones documentadas vs ADR — Fase 7
+
+Durante la ejecución de F7 se tomaron las siguientes decisiones no explícitas (o
+divergentes) respecto al ADR/compass. Se documentan para trazabilidad en la
+memoria (Cap. 6). El plan de implementación es
+`~/.claude/plans/en-base-a-este-clever-eich.md`.
+
+| # | Decisión | Justificación |
+|---|---|---|
+| F7.1 | **Backtest sin `VecNormalize`** | `run_backtest` opera sobre el `PortfolioEnv` crudo (`make_eval_env`). Los agentes se entrenaron con `VecNormalize(norm_obs=False)`: las observaciones nunca se normalizaron, así que `model.predict` sobre la obs cruda es correcto. Es el patrón ya validado de `evaluate_on_env` (F6-T6). **Verificado**: el backtest sobre val reproduce el `best_val_sharpe` de F6 al 3.er decimal (A −0.633, B −0.711). |
+| F7.2 | **Columna `turnover` añadida** al DataFrame de `run_backtest` | El ADR F7-T1 lista 6 columnas; `annualized_turnover` (F7-T2) necesita la serie de turnover diario. Disponible en el `info` del entorno. |
+| F7.3 | **Doble checkpoint**: `best_model.zip` (primario) + `model.zip` (`_final.csv`) | El ADR F7-T4 no fija qué modelo evaluar. El primario es `best_model.zip` (criterio F6-T6, alimenta F8); `model.zip` produce una tabla secundaria que confirma fuera de muestra el Hallazgo 3 de F6. El backtest es inferencia pura: coste de cómputo nulo. |
+| F7.4 | **Serie diaria del backtest persistida** en `outputs/eval/backtests/*.parquet` | No lo pide el ADR explícito, pero F8-T3 (Diebold-Mariano) necesita las series de retornos diarios pareadas. Los pesos se expanden a columnas `w_*` (un `ndarray` por celda no serializa limpio a Parquet). |
+| F7.5 | **Proxy de bono del baseline 60/40** | El Treasury 10Y no es un activo cotizado del universo. Su retorno diario se aproxima desde el yield `^TNX`: `r ≈ yield/252 − D_mod·Δy`, con `D_mod=8`. Aproximación deliberada — el 60/40 es contexto, no objeto de estudio. Limitación a mencionar en Cap. 6. |
+| F7.6 | **Test F7-T8(a) con σ=ε** | `sharpe_ratio` (semilla F6.7) devuelve `0.0` para σ ≤ 1e-12 (serie constante). El test usa el "σ=ε" literal del ADR (σ≈1e-6 ≫ umbral) ⇒ Sharpe enorme. Compatible sin modificar la función de F6. |
+| F7.7 | **Script 06 con `argparse`** (no Hydra) | F7-T7 agrega corridas ya entrenadas: sin composición de configs ni sweeps. La config del entorno se lee del `config.yaml` persistido en cada run. Coherente con scripts 01/02. |
+| F7.8 | **`tests/test_eval.py`** además del `tests/test_metrics.py` que pide F7-T8 | Cobertura TDD de `run_backtest`, baselines y runner (esquema, determinismo, consistencia riqueza↔retornos, costes de baselines). |
+
+**Estado de la fase**: COMPLETA. F7-T1…T8 implementados con TDD (25 tests nuevos
+en `tests/test_metrics.py` + `tests/test_eval.py`, suite total 81 verde).
+`scripts/06_backtest_agent.py` ejecutado: 2 agentes × 5 seeds × {val, test} ×
+{best, final} = 40 backtests + 3 baselines + 4 plots. Outputs en `outputs/eval/`
+(CSVs + series diarias) y `outputs/plots/`. El veredicto estadístico formal
+(IC bootstrap, Welch, Diebold-Mariano) se produce en F8.
+
+### Resultados de la Fase 7 y hallazgos para el Capítulo 6
+
+Backtest out-of-sample sobre el **test real (2023-01-01 → 2025-04-30, 583 días)**,
+checkpoint primario `best_model.zip`. Insumo directo del **Cap. 5 (resultados de
+la comparativa)** y del **Cap. 6 (discusión)**.
+
+**Tabla comparativa A vs B (test, mejor checkpoint, media ± std entre 5 seeds):**
+
+| Métrica | Agente A (real) | Agente B (real+sintético) |
+|---|---|---|
+| Retorno anualizado | 48.0 % ± 13.6 pp | **53.1 % ± 5.1 pp** |
+| Volatilidad anualizada | 25.2 % | 24.6 % |
+| Sharpe | 1.656 ± 0.242 | **1.863 ± 0.158** |
+| Sortino | 1.740 | **1.959** |
+| Máximo drawdown | −24.2 % | **−22.4 %** |
+| Calmar | 2.034 | **2.386** |
+| CVaR-95 % | −3.35 % | −3.24 % |
+| Turnover anualizado | 27.1 | 20.0 |
+| Win rate | 55.9 % | 55.6 % |
+
+**Baselines pasivos (test):** equiponderado 6 activos — retorno 53.2 %, Sharpe
+1.860, MDD −24.0 %; buy-and-hold S&P 500 — 17.4 %, Sharpe 1.085, MDD −18.9 %;
+60/40 acciones/bonos — 31.6 %, Sharpe 1.905, MDD −14.2 %.
+
+**Hallazgo 1 — En test out-of-sample los agentes obtienen Sharpe positivo y baten
+al buy-and-hold del S&P 500.** Frente a los Sharpe negativos en val 2022 (un
+crash tecnológico, ver F6 Hallazgo 1), en el test 2023-2025 —mercado alcista
+liderado por tecnología— ambos agentes rinden con Sharpe ~1.7-1.9 y retornos
+anuales del 48-53 %. El backtest sobre val **reproduce exactamente** el
+`best_val_sharpe` de F6 (A −0.633, B −0.711): cross-check que valida que
+`run_backtest` es consistente con el `ValidationEvalCallback` de la Fase 6.
+
+**Hallazgo 2 — El Agente B supera al Agente A en test en todas las métricas
+(mejor checkpoint).** Sharpe 1.86 vs 1.66, retorno 53 % vs 48 %, drawdown −22.4 %
+vs −24.2 %, Calmar 2.39 vs 2.03, Sortino 1.96 vs 1.74. Es el resultado favorable
+a la hipótesis del TFE; su significancia estadística la decide F8.
+
+**Hallazgo 3 — La aumentación con sintéticos reduce drásticamente la varianza
+entre seeds, y este efecto es el más robusto.** La desviación entre seeds del
+Sharpe cae de 0.242 (A) a 0.158 (B) con el mejor checkpoint, y de 0.180 a **0.067**
+con el modelo final; la del retorno anualizado, de 13.6 pp a 5.1 pp. Confirma
+**out-of-sample en test** el Hallazgo 2 de la Fase 6 (medido entonces solo en val):
+los escenarios sintéticos estabilizan el entrenamiento frente a la conocida alta
+varianza entre seeds del PPO (compass §3.7, §4.7).
+
+**Hallazgo 4 — La ventaja de B en el nivel medio depende del checkpoint; la
+reducción de varianza no.** Con el modelo final, el Sharpe medio de A y B empata
+(1.746 vs 1.743), mientras que con el mejor checkpoint B aventaja a A (1.86 vs
+1.66). El período de validación (crash 2022) es tan distinto del test (alcista
+2023-2025) que la selección "mejor en val" (F6-T6) no transfiere de forma
+consistente a "mejor en test". Lectura para el Cap. 6: la aumentación aporta
+**robustez** (menor dispersión entre seeds) de forma sólida e independiente del
+checkpoint; la mejora del **nivel medio** es real pero más frágil.
+
+**Hallazgo 5 — La mejora de B es persistente en los 3 sub-períodos de estrés y
+máxima en el régimen adverso.** Diferencia de Sharpe B−A: `rates_shock_2023`
++0.21, `ai_rally_2024` +0.14, `q1_2025_selloff` **+0.61**. En el único
+sub-período de pérdidas (sell-off Q1 2025, ambos agentes con Sharpe negativo) el
+Agente B cae mucho menos (−0.93 frente a −1.54 de A). El signo positivo y
+consistente en los tres períodos es coherente con la hipótesis del TFE —los
+escenarios sintéticos ayudan más en regímenes raros/adversos— y será formalizado
+por el análisis de persistencia de F8-T6 (compass §7.5).
+
+**Hallazgo 6 — Frente a baselines pasivos: el Agente B iguala al equiponderado;
+el Agente A se queda por debajo.** El equiponderado rebalanceado (Sharpe 1.86,
+retorno 53 %) coincide casi exactamente con el Agente B; el Agente A (1.66)
+queda por debajo. Ambos baten al buy-and-hold del S&P 500 (1.09) pero no al
+60/40, que logra el mejor Sharpe (1.90) gracias a su baja volatilidad. Lectura
+honesta (compass §7.2, §7.4, pitfall #3): los agentes DRL **no superan de forma
+clara a una estrategia equiponderada trivial**; el valor del TFE está en la
+**comparación A vs B** (efecto de la aumentación), no en construir un sistema de
+trading rentable. La aumentación acerca al Agente B al baseline equiponderado.
 
 ---
 
@@ -824,7 +991,7 @@ Marcá `[x]` (sustituyendo el espacio dentro de los corchetes por una `x`) cuand
 - [x] **F5-T9** — Test `test_reward_consistency` pasa
 - [x] **F5-T10** — Test `test_transaction_costs` pasa
 
-### Fase 6 — Entrenamiento PPO (Agente A y Agente B) `[ ] FASE COMPLETA`
+### Fase 6 — Entrenamiento PPO (Agente A y Agente B) `[x] FASE COMPLETA`
 
 - [x] **F6-T1** — Config Hydra hiperparámetros PPO
 - [x] **F6-T2** — Configs experimentos `agent_a` y `agent_b`
@@ -835,20 +1002,20 @@ Marcá `[x]` (sustituyendo el espacio dentro de los corchetes por una `x`) cuand
 - [x] **F6-T7** — `set_global_seed` reproducible
 - [x] **F6-T8** — Script `05_train_agent.py` con Hydra multirun
 - [x] **F6-T9** — Igualación de timesteps verificada
-- [ ] **F6-T10** — **Agente A**: 5 seeds entrenados (modelos persistidos)
-- [ ] **F6-T11** — **Agente B**: 5 seeds entrenados (modelos persistidos)
+- [x] **F6-T10** — **Agente A**: 5 seeds entrenados (modelos persistidos)
+- [x] **F6-T11** — **Agente B**: 5 seeds entrenados (modelos persistidos)
 - [x] **F6-T12** — Test `test_a_vs_b_comparable` pasa
 
-### Fase 7 — Backtesting y evaluación `[ ] FASE COMPLETA`
+### Fase 7 — Backtesting y evaluación `[x] FASE COMPLETA`
 
-- [ ] **F7-T1** — Función `run_backtest` causal
-- [ ] **F7-T2** — Batería de 9 métricas implementada
-- [ ] **F7-T3** — Baselines pasivos (equiponderado, S&P 500, 60/40)
-- [ ] **F7-T4** — `evaluate_runs` produce CSV por agente
-- [ ] **F7-T5** — Evaluación condicionada por sub-períodos de estrés
-- [ ] **F7-T6** — Plots comparativos generados
-- [ ] **F7-T7** — Script `06_backtest_agent.py`
-- [ ] **F7-T8** — Tests `test_metrics.py` pasan
+- [x] **F7-T1** — Función `run_backtest` causal
+- [x] **F7-T2** — Batería de 9 métricas implementada
+- [x] **F7-T3** — Baselines pasivos (equiponderado, S&P 500, 60/40)
+- [x] **F7-T4** — `evaluate_runs` produce CSV por agente
+- [x] **F7-T5** — Evaluación condicionada por sub-períodos de estrés
+- [x] **F7-T6** — Plots comparativos generados
+- [x] **F7-T7** — Script `06_backtest_agent.py`
+- [x] **F7-T8** — Tests `test_metrics.py` pasan
 
 ### Fase 8 — Análisis estadístico comparativo `[ ] FASE COMPLETA`
 
@@ -893,7 +1060,7 @@ Estas tareas son los tests que protegen la validez del experimento. Cuando todas
 - [ ] **F5-T9** — Test reward consistency
 - [ ] **F5-T10** — Test transaction costs
 - [x] **F6-T12** — Test A vs B comparables
-- [ ] **F7-T8** — Tests métricas contra valores conocidos
+- [x] **F7-T8** — Tests métricas contra valores conocidos
 
 ---
 
